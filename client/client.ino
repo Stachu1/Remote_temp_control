@@ -35,14 +35,13 @@ void setup() {
   temp_target = EEPROM.read(ADDR);
 
   if (!bmp.begin(0x76)) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    Serial.println("Couldn't find a valid BMP280 sensor, check wiring!");
     while (true);
   }
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,Adafruit_BMP280::SAMPLING_X2,Adafruit_BMP280::SAMPLING_X16,Adafruit_BMP280::FILTER_X16,Adafruit_BMP280::STANDBY_MS_500);
 
-  connect();
-  network_update();
   temp_update();
+  network_update();
 }
 
 void loop() {
@@ -81,22 +80,21 @@ void temp_update() {
     temp_target = 25;
   }
   if (temp < temp_target) {
-    digitalWrite(HEATER, HIGH);
+    digitalWrite(HEATER, LOW); // ON
   }
   else if (temp > temp_target + 1) {
-    digitalWrite(HEATER, LOW);
+    digitalWrite(HEATER, HIGH); // OFF
   }  
 }
 
 
 void network_update() {
-  if(WiFi.status()== WL_CONNECTED) {
+  if(connect()) {
     http.begin(URL + String(temp));
-    
     int response_code = http.GET();
-
     Serial.print("HTTP Response code: ");
     Serial.println(response_code);
+
     if (response_code > 0) {
       String data = http.getString();
       temp_target = data.toInt();
@@ -105,16 +103,18 @@ void network_update() {
         EEPROM.commit();
       }
     }
+    else {
+      Serial.println("Connection couldn't be established");
+    }
     http.end();
-  }
-  else {
-    Serial.println("WiFi Disconnected");
-    connect();
   }
 }
 
 
-void connect() {
+bool connect() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return true;
+  }
   Serial.print("\nConnecting to ");
   Serial.println(SSID);
   WiFi.begin(SSID, PASSWORD);
@@ -131,8 +131,10 @@ void connect() {
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
     Serial.println("\n");
+    return true;
   }
   else {
-    Serial.println("Connection couldn't be established");
+    Serial.println("Failed to connect!");
+    return false;
   }
 }
