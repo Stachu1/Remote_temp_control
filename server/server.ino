@@ -230,18 +230,17 @@ void handle_client(WiFiClient client) {
             client.println("<link rel=\"icon\" href=\"data:,\">");
 
             client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-            client.println("text-decoration: none; font-size: 60px; margin: 2px; cursor: pointer;");
             client.println("</style></head>");
             
             client.println("<body style='background-color:#1c1c1c;'><h1 style='color:white'>Temp control</h1>");
             
             
-            client.println("<p style='color:white'>Current temp: " + String(data.temp) + " " + DEG + "C</p>");
-            client.println("<p style='color:red'>Temp max: " + String(data.temp_max) + " " + DEG + "C</p>");
-            client.println("<p style='color:cyan'>Temp min: " + String(data.temp_min) + " " + DEG + "C</p>");
-            client.println("<p style='color:white'>Updated: " + seconds_to_time_string(data.temp_updated_time) + "</p>");
+            client.println("<h3 style='color:white'>Current temp: " + String(data.temp) + " " + DEG + "C</h3>");
+            client.println("<h3 style='color:red'>Temp max: " + String(data.temp_max) + " " + DEG + "C</h3>");
+            client.println("<h3 style='color:cyan'>Temp min: " + String(data.temp_min) + " " + DEG + "C</h3>");
+            client.println("<h3 style='color:white'>Updated: " + seconds_to_time_string(data.temp_updated_time) + "</h3>");
             client.println("<br>");
-            client.println("<p style='color:white'>Temp target: " + String(data.temp_target) + " " + DEG + "C</p>");
+            client.println("<h3 style='color:white'>Temp target: " + String(data.temp_target) + " " + DEG + "C</h3>");
             client.println("</body></html>");
           }
           
