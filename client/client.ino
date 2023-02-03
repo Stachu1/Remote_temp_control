@@ -18,8 +18,8 @@ const char* URL = "http://YOUR_IP/temp/";
 
 float temp;
 uint8_t temp_target;
-uint64_t temp_check_timer = 0;
-uint64_t temp_send_timer = 0;
+uint32_t temp_check_timer = 0;
+uint32_t temp_send_timer = 0;
 
 Adafruit_BMP280 bmp;
 HTTPClient http;
@@ -45,18 +45,23 @@ void setup() {
 }
 
 void loop() {
+  if (millis() < temp_send_timer || millis() < temp_check_timer) {
+    temp_send_timer = millis();
+    temp_check_timer = millis();
+  }
+
   if (millis() - temp_send_timer >= TEMP_SEND_INTERVAL || digitalRead(BUTTON) == LOW) {
+    temp_send_timer += TEMP_SEND_INTERVAL;
     delay(50);
     while(digitalRead(BUTTON) == LOW) {
       digitalWrite(LED, HIGH);
     }
     digitalWrite(LED, LOW);
-    temp_send_timer = millis();
     network_update();
   }
 
   if (millis() - temp_check_timer >= TEMP_CHECK_INTERVAL) {
-    temp_check_timer = millis();
+    temp_check_timer += TEMP_CHECK_INTERVAL;
     temp_update();
   }
 }
