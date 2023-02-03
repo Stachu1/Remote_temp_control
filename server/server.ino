@@ -13,7 +13,7 @@ const char DEG = 186;
 const char* TIME_SERVER_URL = "http://worldtimeapi.org/api/timezone/Europe/Warsaw";
 
 const int TIMEOUT = 2000;
-const int GET_TIME_DELAY = 3600000;
+const int UPDATE_TIME_INTERVAL = 3600000;
 
 WiFiServer server(80);
 HTTPClient http;
@@ -54,23 +54,28 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     WiFiClient client = server.available();
     if (client) {
+      digitalWrite(LED, HIGH);
       handle_client(client);
+      digitalWrite(LED, LOW);
     }
   }
   else {
     connect();
   }
 
-  if ((millis() - time_update_millis) > GET_TIME_DELAY) {
+  if (millis() < time_update_millis) {
+    time_update_millis = millis();
+  }
+
+  if ((millis() - time_update_millis) > UPDATE_TIME_INTERVAL) {
+    time_update_millis += UPDATE_TIME_INTERVAL;
     int32_t t = get_current_time();
     if (t >= 0) {
       updated_time = t;
-      time_update_millis = millis();
-      current_time = updated_time;
+      current_time = t;
     }
     else {
       updated_time = current_time;
-      time_update_millis = millis();
     }
   }
   else {
