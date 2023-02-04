@@ -11,6 +11,7 @@ const char* PASSWORD = "PASSWORD";
 const char DEG = 186;
 
 const char* TIME_SERVER_URL = "http://worldtimeapi.org/api/timezone/Europe/Warsaw";
+const char* FAVICON_URL = "https://www.cprogramming.com/favicon.ico";
 
 const int TIMEOUT = 2000;
 const int UPDATE_TIME_INTERVAL = 3600000;
@@ -33,6 +34,8 @@ struct Data {
 };
 
 Data data;
+
+float delta_temp = -100.0;
 
 
 void setup() {
@@ -86,7 +89,8 @@ void loop() {
     data.temp_max = data.temp;
     data.temp_min = data.temp;
     updated_time = 0;
-    current_time = updated_time;
+    current_time = 0;
+    time_update_millis = millis();
   }
 }
 
@@ -173,13 +177,11 @@ void connect() {
 
 
 void handle_client(WiFiClient client) {
-  int current_millis = millis();
-  int previous_millis = current_millis;
-  String header;
+  uint32_t connection_start_millis = millis();
+  String header = "";
   String currentLine = "";
   char c;
-  while (client.connected() && current_millis - previous_millis <= TIMEOUT) {
-    current_millis = millis();
+  while (client.connected() && millis() - connection_start_millis <= TIMEOUT) {
     if (client.available()) {
       c = client.read();
       header += c;
@@ -211,9 +213,13 @@ void handle_client(WiFiClient client) {
           }
 
           else if (header.indexOf("temp") >= 0 ) {
+            delta_temp = -data.temp;
+
             String temp_string = header.substring(header.indexOf("temp") + 5, header.length());
             temp_string = temp_string.substring(0, temp_string.indexOf(" "));
             data.temp = temp_string.toFloat();
+            delta_temp += data.temp;
+
             data.temp_updated_time = current_time;
             if (data.temp > data.temp_max) {
               data.temp_max = data.temp;
@@ -231,18 +237,26 @@ void handle_client(WiFiClient client) {
 
           else {
             client.println("<!DOCTYPE html><html>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<link rel=\"icon\" href=\"data:,\">");
-
+            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=2\">");
+            client.println("<link rel=\"icon\" href=\"" + FAVICON_URL + "\" sizes=\"16x16\" type=\"image/png\">");
             client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
             client.println("</style></head>");
-            
             client.println("<body style='background-color:#1c1c1c;'><h1 style='color:white'>Temp control</h1>");
-            
-            
+
+            client.println("<br>");
             client.println("<h3 style='color:white'>Current temp: " + String(data.temp) + " " + DEG + "C</h3>");
+            if (delta_temp != -100.0) {
+              if (delta_temp >= 0.0) {
+                client.println("<h3 style='color:red'>Temp diff: " + String(delta_temp) + " " + DEG + "C</h3>");
+              }
+              else {
+                client.println("<h3 style='color:#008cff'>Temp diff: " + String(delta_temp) + " " + DEG + "C</h3>");
+              }
+            }
+            client.println("<br>");
             client.println("<h3 style='color:red'>Temp max: " + String(data.temp_max) + " " + DEG + "C</h3>");
-            client.println("<h3 style='color:cyan'>Temp min: " + String(data.temp_min) + " " + DEG + "C</h3>");
+            client.println("<h3 style='color:#008cff'>Temp min: " + String(data.temp_min) + " " + DEG + "C</h3>");
+            client.println("<br>");
             client.println("<h3 style='color:white'>Updated: " + seconds_to_time_string(data.temp_updated_time) + "</h3>");
             client.println("<br>");
             client.println("<h3 style='color:white'>Temp target: " + String(data.temp_target) + " " + DEG + "C</h3>");
@@ -261,7 +275,5 @@ void handle_client(WiFiClient client) {
       }
     }
   }
-  
-  header = "";
   client.stop();
 }
