@@ -5,16 +5,16 @@
 
 #define EEPROM_OFFSET 0
 #define LED 2
+#define TEMP_TARGET_LOCK_SWITCH 15
 
 const char* SSID = "SSID";
 const char* PASSWORD = "PASSWORD";
-const char DEG = 186;
-
 const char* TIME_SERVER_URL = "http://worldtimeapi.org/api/timezone/Europe/Warsaw";
 const char* FAVICON_URL = "https://www.cprogramming.com/favicon.ico";
+const char DEG = 186;
 
 const int TIMEOUT = 2000;
-const int UPDATE_TIME_INTERVAL = 3600000;
+const int UPDATE_TIME_INTERVAL = 43200000;
 
 WiFiServer server(80);
 HTTPClient http;
@@ -31,15 +31,17 @@ struct Data {
   float temp_min;
   float temp_max;
   uint32_t temp_updated_time;
+  IPAddress target_set_IP;
 };
 
 Data data;
 
-float delta_temp = -100.0;
+float delta_temp = -999;
 
 
 void setup() {
   pinMode(LED, OUTPUT);
+  pinMode(TEMP_TARGET_LOCK_SWITCH, INPUT_PULLUP);
 
   Serial.begin(115200);
   EEPROM.begin(sizeof(struct Data) + EEPROM_OFFSET);
@@ -66,6 +68,11 @@ void loop() {
     connect();
   }
 
+  timer_update();
+}
+
+
+void timer_update() {
   if (millis() < time_update_millis) {
     time_update_millis = millis();
   }
@@ -175,6 +182,34 @@ void connect() {
   Serial.println("\n");
 }
 
+void save_temp_target(String header, WiFiClient client) {
+  String temp_string = header.substring(header.indexOf("tempTarget") + 11, header.length());
+  temp_string = temp_string.substring(0, temp_string.indexOf(" "));
+  data.temp_target = temp_string.toFloat();
+  data.target_set_IP = client.remoteIP();
+  EEPROM.put(EEPROM_OFFSET, data);
+  EEPROM.commit();
+}
+
+
+void save_temp(String header) {
+  delta_temp = -data.temp;
+  String temp_string = header.substring(header.indexOf("temp") + 5, header.length());
+  temp_string = temp_string.substring(0, temp_string.indexOf(" "));
+  data.temp = temp_string.toFloat();
+  delta_temp += data.temp;
+
+  data.temp_updated_time = current_time;
+  if (data.temp > data.temp_max) {
+    data.temp_max = data.temp;
+  }
+  if (data.temp < data.temp_min) {
+    data.temp_min = data.temp;
+  }
+  EEPROM.put(EEPROM_OFFSET, data);
+  EEPROM.commit();
+}
+
 
 void handle_client(WiFiClient client) {
   uint32_t connection_start_millis = millis();
@@ -191,44 +226,28 @@ void handle_client(WiFiClient client) {
           client.println("Content-type:text/html");
           client.println("Connection: close");
           client.println();
-          
-          if (header.indexOf("favicon") >= 0) {
-            client.println();
-            break;
-          }
 
-          Serial.print("\nNew Client IP: ");
+          Serial.print("\nNew Client\nIP: ");
           Serial.println(client.remoteIP());
 
           if (header.indexOf("tempTarget") >= 0) {
-            String temp_string = header.substring(header.indexOf("tempTarget") + 11, header.length());
-            temp_string = temp_string.substring(0, temp_string.indexOf(" "));
-            data.temp_target = temp_string.toFloat();
-            EEPROM.put(EEPROM_OFFSET, data);
-            EEPROM.commit();
+            if (digitalRead(TEMP_TARGET_LOCK_SWITCH) == HIGH) {
+              save_temp_target(header, client);
 
-            client.print(data.temp_target);
-            Serial.print("Temp target set to: ");
-            Serial.println(data.temp_target);
+              client.print(data.temp_target);
+              Serial.print("Temp target set to: ");
+              Serial.println(data.temp_target);
+            }
+            else {
+              client.print("Temp target is locked at ");
+              client.print(data.temp_target);
+              Serial.print("Temp target locked at: ");
+              Serial.println(data.temp_target);
+            }
           }
 
           else if (header.indexOf("temp") >= 0 ) {
-            delta_temp = -data.temp;
-
-            String temp_string = header.substring(header.indexOf("temp") + 5, header.length());
-            temp_string = temp_string.substring(0, temp_string.indexOf(" "));
-            data.temp = temp_string.toFloat();
-            delta_temp += data.temp;
-
-            data.temp_updated_time = current_time;
-            if (data.temp > data.temp_max) {
-              data.temp_max = data.temp;
-            }
-            if (data.temp < data.temp_min) {
-              data.temp_min = data.temp;
-            }
-            EEPROM.put(EEPROM_OFFSET, data);
-            EEPROM.commit();
+            save_temp(header);
 
             client.print(data.temp_target);
             Serial.print("Current temp: ");
@@ -238,14 +257,16 @@ void handle_client(WiFiClient client) {
           else {
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=2\">");
-            client.println("<link rel=\"icon\" href=\"" + FAVICON_URL + "\" sizes=\"16x16\" type=\"image/png\">");
+            client.print("<link rel=\"icon\" href=\"");
+            client.print(FAVICON_URL);
+            client.println("\" sizes=\"16x16\" type=\"image/png\">");
             client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
             client.println("</style></head>");
             client.println("<body style='background-color:#1c1c1c;'><h1 style='color:white'>Temp control</h1>");
 
             client.println("<br>");
             client.println("<h3 style='color:white'>Current temp: " + String(data.temp) + " " + DEG + "C</h3>");
-            if (delta_temp != -100.0) {
+            if (delta_temp != -999) {
               if (delta_temp >= 0.0) {
                 client.println("<h3 style='color:red'>Temp diff: " + String(delta_temp) + " " + DEG + "C</h3>");
               }
@@ -260,6 +281,7 @@ void handle_client(WiFiClient client) {
             client.println("<h3 style='color:white'>Updated: " + seconds_to_time_string(data.temp_updated_time) + "</h3>");
             client.println("<br>");
             client.println("<h3 style='color:white'>Temp target: " + String(data.temp_target) + " " + DEG + "C</h3>");
+            client.println("<h3 style='color:white'>Set from: " + String(data.target_set_IP[0]) + "." + String(data.target_set_IP[1]) + "." + String(data.target_set_IP[2]) + "." + String(data.target_set_IP[3]) + "</h3>");
             client.println("</body></html>");
           }
           
