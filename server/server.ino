@@ -281,7 +281,9 @@ void handle_client(WiFiClient client) {
             client.println("<h3 style='color:white'>Updated: " + seconds_to_time_string(data.temp_updated_time) + "</h3>");
             client.println("<br>");
             client.println("<h3 style='color:white'>Temp target: " + String(data.temp_target) + " " + DEG + "C</h3>");
-            client.println("<h3 style='color:white'>Set from: " + String(data.target_set_IP[0]) + "." + String(data.target_set_IP[1]) + "." + String(data.target_set_IP[2]) + "." + String(data.target_set_IP[3]) + "</h3>");
+            client.print("<h3 style='color:white'>Set from: ");
+            client.print(data.target_set_IP.toString());
+            client.println("</h3>");
             client.println("</body></html>");
           }
           
