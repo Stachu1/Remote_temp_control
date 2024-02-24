@@ -10,14 +10,15 @@ git clone https://github.com/Stachu1/Remote_temp_control.git
 
 2. Set up the WiFi and relay pin
    
-Server
+
 ```C
+// Server
 const char* SSID = "SSID";
 const char* PASSWORD = "PASSWORD";
 ```
 
-Client
 ```C
+// Client
 #define HEATER 5
 const char* SSID = "SSID";
 const char* PASSWORD = "PASSWORD";
@@ -29,7 +30,7 @@ ar* URL = "http://ServerIP/temp/"
 3. Upload the code to your ESP32s
 
 
-5. Check if everything works by typing the IP addres of the server ESP32 in your webbrowser
+5. Check if everything is working by typing in the server's IP address in your web browser
 
 
 ## Usage
